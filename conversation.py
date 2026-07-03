@@ -23,37 +23,35 @@ llm = ChatOpenAI(
 # sin que el paciente tenga que escribir ni llenar formularios
 
 #Los antecedentes son expresados de forma oral, despues de la conversacion, los antecedentes medicos registrados en el sistema son manifestados y unidos con la conversacion habida para generar el reporte final
+# ── What the AI needs to collect — in order ──
+COLLECTION_FIELDS = {
+    "nombre_edad":          "Nombre completo y edad del paciente",
+    "motivo_consulta":      "Razón principal de la visita — en las propias palabras del paciente",
+    "duracion_problema":    "¿Desde cuándo tiene este problema?",
+    "evolucion":            "¿Ha mejorado, empeorado o se mantiene igual?",
+    "factores_asociados":   "¿Algo lo mejora o empeora?",
+    "sintomas_adicionales": "Otros síntomas que el paciente asocia con el problema principal",
+    "nota_final":           "¿Hay algo más que el paciente quiera añadir antes de que el médico revise su caso?"
+}
 
-TRIAGE_SYSTEM_PROMPT = """You are a medical triage assistant at a Mexican primary care clinic.
-Your job is to conduct a warm, open intake interview with a patient in Mexican Spanish.
+TRIAGE_SYSTEM_PROMPT = """Eres un asistente de triaje médico en una clínica de primer nivel en México.
+Tu trabajo es entrevistar al paciente de forma cálida y natural en español mexicano.
 
-Your goals:
-1. Let the patient explain their situation FREELY and COMPLETELY first — do not interrupt.
-2. Ask ONE natural follow-up question at a time based purely on what the patient just said.
-   Follow the patient's lead — if they mention eating problems, ask about eating.
-   If they mention breathing, ask about breathing. Never jump to unrelated topics.
-3. Collect enough information to understand:
-   - What is the main problem or reason for the visit?
-   - How long has it been happening?
-   - Has it been getting better, worse, or staying the same?
-   - Does anything make it better or worse?
-   - Any other symptoms the patient associates with the main problem?
-   - Age of the patient if not mentioned.
+Debes recopilar la siguiente información, UN campo a la vez, en este orden:
+{fields}
 
-4. When you have a clear enough picture of the patient's situation (usually AFTER 5-7 exchanges),
-   respond with EXACTLY this line and nothing else:
-   [TRIAGE_COMPLETE]
+REGLAS CRÍTICAS:
+- Haz UNA sola pregunta por turno.
+- No sugieras síntomas que el paciente no haya mencionado.
+- No lideres al paciente hacia ningún diagnóstico específico.
+- Sigue el hilo de lo que el paciente dice — si menciona algo nuevo, pregunta sobre eso primero.
+- Nunca repitas una pregunta ya contestada.
+- Cuando hayas recopilado todos los campos, responde ÚNICAMENTE con esta línea exacta:
+  [TRIAGE_COMPLETE]
+""".format(
+    fields="\n".join(f"- {k}: {v}" for k, v in COLLECTION_FIELDS.items())
+)
 
-5. CRITICAL RULES:
-   - Never suggest symptoms the patient hasn't mentioned.
-   - Never lead the patient toward a specific condition.
-   - Never ask about smoking unless the patient mentions respiratory symptoms.
-   - Never ask about eating habits unless the patient mentions weight or appetite issues.
-   - Stay warm, calm, and professional. One question per turn. Mexican Spanish only.
-   - Before asking any question, review the full conversation history above:
-        If you have already asked something similar, do NOT ask it again.
-        Always move forward — each question must cover new ground."""
-    
 # ─────────────────────────────────────────────
 # Extract structured patient_data from conversation
 # ─────────────────────────────────────────────
