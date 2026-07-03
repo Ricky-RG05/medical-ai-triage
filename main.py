@@ -36,6 +36,14 @@ Script the download of ollama and all required libraries in a batch file!
 from report_generator import generate_pdf
 from conversation import run_triage_conversation, classify_condition
 
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
+
+#Current dimension is 768, i.e. the default for nomic-embed-text-v2-moe, i.e. the highest dimension available, and honestly, more than enough! 
+embeddings = OllamaEmbeddings(
+    model="nomic-embed-text-v2-moe",
+    base_url="http://localhost:11434",
+)
+
 # At the top — unpack both values
 patient_data, conversation_transcript = run_triage_conversation()
 
@@ -43,18 +51,45 @@ if not conversation_transcript:
     print("No se recopiló información del paciente. Saliendo.")
     exit()
 
-selected_folder = classify_condition(conversation_transcript)
+selected_folders = classify_condition(conversation_transcript)
+
+# ── Load and embed ALL selected PDFs ──
+all_splits = []
+for folder in selected_folders:
+    pdf_folder = os.path.join(r"PDFs", folder)
+    pdf_files  = glob.glob(os.path.join(pdf_folder, "*.pdf"))
+    if not pdf_files:
+        print(f"⚠️  No se encontró PDF en: {pdf_folder}")
+        continue
+    loader = PyPDFLoader(pdf_files[0])
+    print(f"📄 Cargando guía: {pdf_files[0]}")
+    docs   = loader.load()
+    splits = text_splitter.split_documents(docs)
+    all_splits.extend(splits)
+
+if not all_splits:
+    print("❌ No se encontraron guías. Saliendo.")
+    exit()
+
+# ── Build one vectorstore from all selected PDFs ──
+vectorstore = Chroma.from_documents(documents=all_splits, embedding=embeddings)
+retriever   = vectorstore.as_retriever(search_kwargs={"k": 4})
 
 # ── Human-readable labels per condition ──
 CONDITION_LABELS = {
-    "cancer_pulmonar":                    ("Detección Temprana de Cáncer de Pulmón",       "¿Debería este paciente ser referido a un especialista? Evalúa el riesgo de cáncer pulmonar según la GPC."),
-    "asma_en_menores_de_edad":            ("Evaluación de Asma en Menores de Edad",         "¿Debería este paciente recibir tratamiento o ser referido? Evalúa el riesgo y manejo del asma según la GPC."),
-    "evaluación_y_control_alimentario":   ("Evaluación y Control Alimentario",              "¿Requiere este paciente intervención nutricional o referencia? Evalúa su estado alimentario según la GPC."),
-    "transtornos_de_conducta_alimentaria":("Trastornos de Conducta Alimentaria",            "¿Debería este paciente ser referido a un especialista? Evalúa el riesgo de trastorno alimentario según la GPC."),
+    "diabetes_tipo2":                    ("Diabetes Mellitus Tipo 2",              "¿Requiere este paciente ajuste de tratamiento o referencia? Evalúa según la GPC."),
+    "diarrea_aguda":                     ("Enfermedad Diarreica Aguda",             "¿Debería este paciente recibir tratamiento o ser referido? Evalúa según la GPC."),
+    "dislipidemias_hipercolesterolemia": ("Dislipidemias e Hipercolesterolemia",    "¿Requiere este paciente intervención o referencia? Evalúa su perfil lipídico según la GPC."),
+    "faringoamigdalitis_aguda":          ("Faringoamigdalitis Aguda",               "¿Requiere este paciente antibiótico o referencia? Evalúa según la GPC."),
+    "hipertension_arterial":             ("Hipertensión Arterial",                  "¿Requiere este paciente ajuste de tratamiento o referencia urgente? Evalúa según la GPC."),
+    "infeccion_urinaria_mujer":          ("Infección de Vías Urinarias",            "¿Debería este paciente recibir tratamiento o ser referido? Evalúa según la GPC."),
+    "infeccion_vias_respiratorias":      ("Infección Aguda de Vías Respiratorias",  "¿Requiere este paciente tratamiento o referencia? Evalúa según la GPC."),
+    "influenza_n1h1":                    ("Influenza AH1N1",                        "¿Debería este paciente ser referido o aislado? Evalúa según la GPC."),
+    "lumbalgia_aguda_cronica":           ("Lumbalgia Aguda y Crónica",              "¿Requiere este paciente tratamiento especializado o referencia? Evalúa según la GPC."),
 }
 
 condition_title, question = CONDITION_LABELS.get(
-    selected_folder,
+    selected_folders[0],
     ("Evaluación Clínica General", "¿Debería este paciente ser referido a un especialista según la GPC?")
 )
 
@@ -64,47 +99,31 @@ print(f"\n📋 Datos recopilados: {len(conversation_transcript)} campos")
 # PATIENT DATA — edit this block as needed
 # ─────────────────────────────────────────────
 """This line will be replaced by the actual patient data collected during the conversation. The structure of the patient_data dictionary should be consistent with the keys expected in the prompt template, and the values should be formatted in a way that is clear and informative for the LLM to process. You can modify the keys and values based on the specific data points you collect from the patient during the triage conversation."""
-
+#
+"""patient_data = {
+    "Nombre": "",
+    "Sexo": "",
+    "Edad": "",
+    "Presión arterial": "",
+    #"Altura": "", #Is the height included in the measurements of the machine?
+    "Peso": "",
+    "Talla": "", 
+    "Glucosa": ""
+}"""
+#Only as dummy to test the triage system running! 
 patient_data = {
-    "Nombre": "Juan Pérez García",
+    "Nombre": "Rodrigo R. Gutiérrez",
     "Sexo": "Masculino",
-    "Edad": "55 años",
-    "Presión arterial": "118/76 mmHg (normal)",
-    "Altura": "170 cm",
-    "Peso": "70 kg",
-    "BMI": "24.2 kg/m²",
-    "Fiebre": "No",
-    "Pérdida de peso": "Sí (>4.5 kg en últimos 3 meses)",
-    "Disnea": "Leve",
-    "Dolor torácico": "No",
-    "Hemoptisis": "No",
+    "Edad": "30 años",
+    "Presión arterial": "120/80 mmHg",
+    "Peso": "75 kg",
+    "Talla": "175 cm", 
+    "Glucosa": "90 mg/dL"
 }
 
 # ─────────────────────────────────────────────
 # 1. Load & index the PDF guideline
 # ─────────────────────────────────────────────
-
-pdf_folder = os.path.join(r"PDFs", selected_folder)
-pdf_files  = glob.glob(os.path.join(pdf_folder, "*.pdf"))
-
-if not pdf_files:
-    print(f"❌ No se encontró ningún PDF en: {pdf_folder}")
-    exit()
-
-loader = PyPDFLoader(pdf_files[0])
-print(f"📄 Cargando guía: {pdf_files[0]}")
-
-docs = loader.load()
-
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
-splits = text_splitter.split_documents(docs)
-
-#Current dimension is 768, i.e. the default for nomic-embed-text-v2-moe, i.e. the highest dimension available, and honestly, more than enough! 
-embeddings = OllamaEmbeddings(
-    model="nomic-embed-text-v2-moe",
-    base_url="http://localhost:11434",
-)
-
 """
 Worth flagging for future-you: when you eventually persist Chroma to disk for performance, you'll need to delete the persisted index any time you change embedding models. 
 """
@@ -160,8 +179,6 @@ def get_retriever(vectorstore, num_docs: int):
     k = min(max(4, math.ceil(num_docs * 0.1)), 20)
     return vectorstore.as_retriever(search_kwargs={"k": k})
 """
-vectorstore = Chroma.from_documents(documents=splits, embedding=embeddings)
-retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
 
 # ─────────────────────────────────────────────
 # 2. LLM via LM Studio
@@ -237,11 +254,14 @@ chain = (
 # ─────────────────────────────────────────────
 # 4. Run the chain
 # ─────────────────────────────────────────────
+
 # ── Show exactly what will be used for the analysis ──
 print("\n" + "="*60)
-print(f"  📂 GUÍA CLÍNICA SELECCIONADA : {selected_folder}")
-print(f"  📄 DOCUMENTO PDF             : {os.path.basename(pdf_files[0])}")
-print(f"  📁 RUTA COMPLETA             : {pdf_files[0]}")
+for folder in selected_folders:
+    pdf_files = glob.glob(os.path.join(r"PDFs", folder, "*.pdf"))
+    if pdf_files:
+        print(f"  📂 {folder} → {os.path.basename(pdf_files[0])}")
+        print(f"  📁 RUTA COMPLETA             : {pdf_files[0]}")
 print("="*60 + "\n")
 
 print("🔍 Analizando datos del paciente con la guía clínica...")
@@ -256,7 +276,7 @@ generate_pdf(
     patient_data=patient_data,
     analysis_result=result,
     condition_title=condition_title,
-    selected_folder=selected_folder
+    selected_folder=selected_folders[0]    # primary condition
 )
 
 """

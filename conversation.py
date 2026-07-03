@@ -17,6 +17,13 @@ llm = ChatOpenAI(
 # ─────────────────────────────────────────────
 # SYSTEM PROMPT — makes the LLM act as a triage nurse
 # ─────────────────────────────────────────────
+
+#Adapt the prompt, so it fills the following: 
+# el motivo de consulta, los síntomas y los antecedentes mediante conversación hablada, 
+# sin que el paciente tenga que escribir ni llenar formularios
+
+#Los antecedentes son expresados de forma oral, despues de la conversacion, los antecedentes medicos registrados en el sistema son manifestados y unidos con la conversacion habida para generar el reporte final
+
 TRIAGE_SYSTEM_PROMPT = """You are a medical triage assistant at a Mexican primary care clinic.
 Your job is to conduct a warm, open intake interview with a patient in Mexican Spanish.
 
@@ -213,39 +220,52 @@ def run_triage_conversation() -> dict:
     return patient_data, transcript
 
 # ─────────────────────────────────────────────
-# CONDITION CLASSIFIER — picks the right PDF folder
+# CONDITION CLASSIFIER — picks the right PDF folder/s
 # ─────────────────────────────────────────────
 
 FOLDERS = {
-    "cancer_pulmonar":                    "Tos crónica, hemoptisis, tabaquismo, pérdida de peso, disnea, dolor torácico",
-    "asma_en_menores_de_edad":            "Sibilancias, dificultad para respirar en niños, alergias, asma infantil",
-    "evaluación_y_control_alimentario":   "Obesidad, sobrepeso, control de peso, hábitos alimentarios, glucosa, colesterol",
-    "transtornos_de_conducta_alimentaria":"Anorexia, bulimia, atracones, restricción alimentaria, imagen corporal, purgas",
+    "diabetes_tipo2":                    "Diabetes, Glucosa elevada, sed excesiva, fatiga, visión borrosa, poliuria, diabetes, control glicémico",
+    "diarrea_aguda":                     "Diarrea, evacuaciones líquidas, dolor abdominal, náuseas, vómito, gastroenteritis, deshidratación",
+    "dislipidemias_hipercolesterolemia": "Colesterol alto, triglicéridos, lípidos en sangre, riesgo cardiovascular, dislipidemia",
+    "faringoamigdalitis_aguda":          "Dolor de garganta, amígdalas inflamadas, fiebre, dificultad al tragar, faringitis, amigdalitis",
+    "hipertension_arterial":             "Presión arterial alta, hipertensión, dolor de cabeza, mareos, control de presión",
+    "infeccion_urinaria_mujer":          "Ardor al orinar, frecuencia urinaria, dolor pélvico, infección urinaria, cistitis, disuria",
+    "infeccion_vias_respiratorias":      "Tos, catarro, resfriado, congestión nasal, moco, rinorrea, dolor de cabeza, gripe leve",
+    "influenza_n1h1":                    "Influenza, gripe fuerte, fiebre alta súbita, dolor muscular intenso, malestar general severo, H1N1",
+    "lumbalgia_aguda_cronica":           "Dolor de espalda baja, lumbalgia, dolor al doblar, ciática, dolor lumbar, espalda",
 }
 
-CLASSIFICATION_PROMPT = f"""You are a medical triage classifier working at a Mexican clinic.
-Your ONLY job is to read a patient conversation and select the ONE most appropriate clinical guideline.
+CLASSIFICATION_PROMPT = f"""You are a medical triage classifier working at a Mexican primary care clinic.
+Your job is to read a patient conversation and select the most appropriate clinical guidelines.
 
 Available guidelines:
-{chr(10).join(f'- "{k}": indicated for {v}' for k, v in FOLDERS.items())}
+{chr(10).join(f'- "{k}": {v}' for k, v in FOLDERS.items())}
 
-INSTRUCTIONS:
-- Base your decision ONLY on what the patient explicitly said, not on what was asked.
-- Choose the guideline whose indications best match the patient's PRIMARY complaint.
-- If the patient's main complaint is about food, weight perception, or body image → transtornos_de_conducta_alimentaria
-- If the patient's main complaint is about nutrition, obesity, or metabolic control → evaluación_y_control_alimentario  
-- If the patient's main complaint is breathing difficulty in a child or wheezing → asma_en_menores_de_edad
-- If the patient's main complaint is chronic cough, hemoptysis, or smoking-related → cancer_pulmonar
-- When in doubt, choose the guideline matching the FIRST symptom the patient spontaneously mentioned.
+RULES:
+- Select ONLY guidelines that are DIRECTLY relevant to the patient's complaints.
+- If the patient has ONE clear main complaint → return ONLY that one guideline.
+- If the patient has TWO OR MORE clearly distinct conditions → return multiple guidelines.
+- NEVER return more than 3 guidelines.
+- NEVER guess or add guidelines not clearly supported by what the patient said.
+- Base your decision ONLY on what the patient explicitly mentioned.
 
-Reply with ONLY the folder name exactly as written above. Nothing else. No explanation."""
+Reply with ONLY the folder name(s), one per line, exactly as written above.
+No explanations. No extra text. Example of single:
+faringoamigdalitis_aguda
+
+Example of multiple:
+diabetes_tipo2
+hipertension_arterial"""
 
 
-def classify_condition(transcript: str) -> str:
-    """Returns the folder name that best matches the patient's conversation."""
+def classify_condition(transcript: str) -> list[str]:
+    """
+    Returns a LIST of folder names that match the patient's conversation.
+    Usually just one, but can be multiple for complex cases.
+    """
     classifier_llm = ChatOpenAI(
-        base_url="http://localhost:11434/v1", 
-        api_key="ollama", 
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
         model="qwen2.5:7b",
         temperature=0
     )
@@ -255,15 +275,19 @@ def classify_condition(transcript: str) -> str:
         HumanMessage(content=f"Conversación:\n{transcript}")
     ])
 
-    folder = response.content.strip()
+    raw = response.content.strip()
 
-    # Safety check — if model hallucinates, fall back to lung cancer
-    if folder not in FOLDERS:
-        print(f"⚠️  Clasificación no reconocida ('{folder}'). Usando 'cancer_pulmonar' por defecto.")
-        return "cancer_pulmonar"
-        #Get a pdf that will serve as the general one, in case the condition wasn't classified correctly, so the RAG can still run and we can get a report with the general information of the patient, even if it's not as accurate as it would be with the correct guide.
+    # Parse — one folder per line
+    candidates = [line.strip() for line in raw.splitlines() if line.strip()]
 
-    print(f"📂 Guía clínica seleccionada: {folder}")
-    return folder
+    # Validate — keep only known folders, ignore hallucinations
+    valid = [c for c in candidates if c in FOLDERS]
 
+    if not valid:
+        #Get a general folder, if the model didn't recognize any specific classification
+        print(f"⚠️  Clasificación no reconocida ('{raw}'). Usando 'infeccion_vias_respiratorias' por defecto.")
+        return ["infeccion_vias_respiratorias"]
+
+    print(f"📂 Guías clínicas seleccionadas: {', '.join(valid)}")
+    return valid
 
