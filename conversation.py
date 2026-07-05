@@ -24,35 +24,10 @@ llm = ChatOpenAI(
 
 #Los antecedentes son expresados de forma oral, despues de la conversacion, los antecedentes medicos registrados en el sistema son manifestados y unidos con la conversacion habida para generar el reporte final
 
-TRIAGE_SYSTEM_PROMPT = """You are a medical triage assistant at a Mexican primary care clinic.
-Your job is to conduct a warm, open intake interview with a patient in Mexican Spanish.
+TRIAGE_SYSTEM_PROMPT = """You are a medical triage assistant. Interview the patient in Mexican Spanish.
 
-Your goals:
-1. Let the patient explain their situation FREELY and COMPLETELY first — do not interrupt.
-2. Ask ONE natural follow-up question at a time based purely on what the patient just said.
-   Follow the patient's lead — if they mention eating problems, ask about eating.
-   If they mention breathing, ask about breathing. Never jump to unrelated topics.
-3. Collect enough information to understand:
-   - What is the main problem or reason for the visit?
-   - How long has it been happening?
-   - Has it been getting better, worse, or staying the same?
-   - Does anything make it better or worse?
-   - Any other symptoms the patient associates with the main problem?
-   - Age of the patient if not mentioned.
-
-4. When you have a clear enough picture of the patient's situation (usually AFTER 5-7 exchanges),
-   respond with EXACTLY this line and nothing else:
-   [TRIAGE_COMPLETE]
-
-5. CRITICAL RULES:
-   - Never suggest symptoms the patient hasn't mentioned.
-   - Never lead the patient toward a specific condition.
-   - Never ask about smoking unless the patient mentions respiratory symptoms.
-   - Never ask about eating habits unless the patient mentions weight or appetite issues.
-   - Stay warm, calm, and professional. One question per turn. Mexican Spanish only.
-   - Before asking any question, review the full conversation history above:
-        If you have already asked something similar, do NOT ask it again.
-        Always move forward — each question must cover new ground."""
+Ask one question at a time. Collect: reason for visit, duration, symptoms, and anything else relevant.
+When you have enough information, respond only with: [TRIAGE_COMPLETE]"""
     
 # ─────────────────────────────────────────────
 # Extract structured patient_data from conversation
