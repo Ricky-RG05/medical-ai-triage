@@ -159,10 +159,18 @@ TEST_PATIENTS = {
         "Talla": "162 cm",
         "Glucosa": "85 mg/dL"
     },
+
+    "raquel": {
+        "Sexo": "Femenino",
+        "Edad": "49 años",
+        "Presión arterial": "112/70 mmHg",
+        "Peso": "60 kg",
+        "Talla": "162 cm",
+        "Glucosa": "85 mg/dL"}
 }
 
 # ── Active test patient — change this line to switch ──
-patient_data = TEST_PATIENTS["carlos"]
+patient_data = TEST_PATIENTS["raquel"]
 
 
 # ─────────────────────────────────────────────
