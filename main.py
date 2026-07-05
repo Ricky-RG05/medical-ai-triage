@@ -1,20 +1,18 @@
 import os
 from datetime import datetime
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
-
+from embedding_generator import preprocess_all_pdfs, build_retriever
 from langchain_ollama import OllamaEmbeddings
 import glob
-
 from gpc_updater import update_all_guides
+# Import custom modules for conversation and PDF generation
+from report_generator import generate_pdf
+from conversation import run_triage_conversation, classify_condition
 
-# Run at startup — skips download if guides haven't changed
-
+#------ Run at startup — skips download if guides haven't changed
 #Store the current system's date twice, once when the comparison was made and the current one. Make a comparison between both to see if a month has gone by. If so, run update_all_guides() (only to be run once a month, because it takes a bit to run!) 
 from gpc_updater import update_all_guides, should_run_monthly_update
 
@@ -32,48 +30,32 @@ Make gpc_updater.py run once in a month to prove all pdfs haven't been changed l
 Script the download of ollama and all required libraries in a batch file!
 """
 
-# Import custom modules for conversation and PDF generation
-from report_generator import generate_pdf
-from conversation import run_triage_conversation, classify_condition
-
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
-
 #Current dimension is 768, i.e. the default for nomic-embed-text-v2-moe, i.e. the highest dimension available, and honestly, more than enough! 
+# ── Define embeddings ──
 embeddings = OllamaEmbeddings(
     model="nomic-embed-text-v2-moe",
     base_url="http://localhost:11434",
 )
 
-# At the top — unpack both values
+# ── Pre-process any missing PDFs at startup ──
+preprocess_all_pdfs(embeddings)
+
+# ── Run triage conversation ──
 patient_data, conversation_transcript = run_triage_conversation()
 
 if not conversation_transcript:
     print("No se recopiló información del paciente. Saliendo.")
     exit()
 
+# ── Classify condition ──
 selected_folders = classify_condition(conversation_transcript)
 
-# ── Load and embed ALL selected PDFs ──
-all_splits = []
-for folder in selected_folders:
-    pdf_folder = os.path.join(r"PDFs", folder)
-    pdf_files  = glob.glob(os.path.join(pdf_folder, "*.pdf"))
-    if not pdf_files:
-        print(f"⚠️  No se encontró PDF en: {pdf_folder}")
-        continue
-    loader = PyPDFLoader(pdf_files[0])
-    print(f"📄 Cargando guía: {pdf_files[0]}")
-    docs   = loader.load()
-    splits = text_splitter.split_documents(docs)
-    all_splits.extend(splits)
+# ── Build retriever from selected folders (uses cache) ──
+retriever = build_retriever(selected_folders, embeddings)
 
-if not all_splits:
-    print("❌ No se encontraron guías. Saliendo.")
+if not retriever:
+    print("❌ No guides available. Exiting.")
     exit()
-
-# ── Build one vectorstore from all selected PDFs ──
-vectorstore = Chroma.from_documents(documents=all_splits, embedding=embeddings)
-retriever   = vectorstore.as_retriever(search_kwargs={"k": 4})
 
 # ── Human-readable labels per condition ──
 CONDITION_LABELS = {
@@ -111,15 +93,77 @@ print(f"\n📋 Datos recopilados: {len(conversation_transcript)} campos")
     "Glucosa": ""
 }"""
 #Only as dummy to test the triage system running! 
-patient_data = {
-    "Nombre": "Rodrigo R. Gutiérrez",
-    "Sexo": "Masculino",
-    "Edad": "30 años",
-    "Presión arterial": "120/80 mmHg",
-    "Peso": "75 kg",
-    "Talla": "175 cm", 
-    "Glucosa": "90 mg/dL"
+# ─────────────────────────────────────────────
+# TEST PATIENTS — for prompt version evaluation
+# Switch by changing: patient_data = TEST_PATIENTS["carlos"]
+# ─────────────────────────────────────────────
+
+TEST_PATIENTS = {
+
+    # TEST 1 — CARLOS
+    # Condición esperada: faringoamigdalitis_aguda
+    # Qué decir en la entrevista:
+    #   - Me llamo Carlos Mendoza, tengo 28 años
+    #   - Desde hace 3 días me duele mucho la garganta, especialmente al tragar
+    #   - También tengo fiebre desde ayer, como de 38.5°C
+    #   - Me siento muy cansado y no tengo ganas de comer
+    #   - No tengo tos ni mocos, solo el dolor de garganta y la fiebre
+    #   - (si te pregunta algo más) No, creo que eso es todo
+    "carlos": {
+        "Nombre": "Carlos Mendoza Reyes",
+        "Sexo": "Masculino",
+        "Edad": "28 años",
+        "Presión arterial": "118/74 mmHg",
+        "Peso": "72 kg",
+        "Talla": "173 cm",
+        "Glucosa": "88 mg/dL"
+    },
+
+    # TEST 2 — DOÑA ESPERANZA
+    # Condición esperada: hipertension_arterial + dislipidemias_hipercolesterolemia
+    # (comorbilidad — dos condiciones simultáneas, buen test para el clasificador)
+    # Qué decir en la entrevista:
+    #   - Me llamo Esperanza Villanueva, tengo 61 años
+    #   - Vengo porque últimamente me dan muchos dolores de cabeza, sobre todo en la mañana
+    #   - También me mareo a veces cuando me levanto rápido
+    #   - Mi doctor anterior me dijo que tenía el colesterol alto pero lo dejé de tratar
+    #   - No hago mucho ejercicio y como bastante grasa
+    #   - (si te pregunta) No tomo ningún medicamento ahorita
+    #   - (al final) Sí, también a veces siento que me late muy fuerte el corazón
+    "esperanza": {
+        "Nombre": "Esperanza Villanueva Torres",
+        "Sexo": "Femenino",
+        "Edad": "61 años",
+        "Presión arterial": "158/96 mmHg",
+        "Peso": "78 kg",
+        "Talla": "158 cm",
+        "Glucosa": "102 mg/dL"
+    },
+
+    # TEST 3 — LUPITA
+    # Condición esperada: infeccion_urinaria_mujer
+    # Qué decir en la entrevista:
+    #   - Me llamo Guadalupe Ramírez, tengo 34 años
+    #   - Llevo como dos días con mucho ardor cuando orino
+    #   - Voy al baño muy seguido pero casi no sale nada
+    #   - También siento una presión rara aquí abajo (zona pélvica)
+    #   - No tengo fiebre ni escalofríos
+    #   - (si te pregunta) No, no tengo dolor de espalda ni en los riñones
+    #   - El ardor empeora al final de cada vez que orino
+    "lupita": {
+        "Nombre": "Guadalupe Ramírez Ortiz",
+        "Sexo": "Femenino",
+        "Edad": "34 años",
+        "Presión arterial": "112/70 mmHg",
+        "Peso": "63 kg",
+        "Talla": "162 cm",
+        "Glucosa": "85 mg/dL"
+    },
 }
+
+# ── Active test patient — change this line to switch ──
+patient_data = TEST_PATIENTS["carlos"]
+
 
 # ─────────────────────────────────────────────
 # 1. Load & index the PDF guideline

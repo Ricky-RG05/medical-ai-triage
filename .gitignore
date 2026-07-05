@@ -20,6 +20,9 @@ __pycache__/
 *.pyc
 *.pyo
 
+#chroma_db/
+chroma_db/
+
 # Whisper/TTS temp files
 *.wav
 *.tmp
