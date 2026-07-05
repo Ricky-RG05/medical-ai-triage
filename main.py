@@ -81,17 +81,7 @@ print(f"\n📋 Datos recopilados: {len(conversation_transcript)} campos")
 # PATIENT DATA — edit this block as needed
 # ─────────────────────────────────────────────
 """This line will be replaced by the actual patient data collected during the conversation. The structure of the patient_data dictionary should be consistent with the keys expected in the prompt template, and the values should be formatted in a way that is clear and informative for the LLM to process. You can modify the keys and values based on the specific data points you collect from the patient during the triage conversation."""
-#
-"""patient_data = {
-    "Nombre": "",
-    "Sexo": "",
-    "Edad": "",
-    "Presión arterial": "",
-    #"Altura": "", #Is the height included in the measurements of the machine?
-    "Peso": "",
-    "Talla": "", 
-    "Glucosa": ""
-}"""
+
 #Only as dummy to test the triage system running! 
 # ─────────────────────────────────────────────
 # TEST PATIENTS — for prompt version evaluation
@@ -110,7 +100,6 @@ TEST_PATIENTS = {
     #   - No tengo tos ni mocos, solo el dolor de garganta y la fiebre
     #   - (si te pregunta algo más) No, creo que eso es todo
     "carlos": {
-        "Nombre": "Carlos Mendoza Reyes",
         "Sexo": "Masculino",
         "Edad": "28 años",
         "Presión arterial": "118/74 mmHg",
@@ -131,7 +120,6 @@ TEST_PATIENTS = {
     #   - (si te pregunta) No tomo ningún medicamento ahorita
     #   - (al final) Sí, también a veces siento que me late muy fuerte el corazón
     "esperanza": {
-        "Nombre": "Esperanza Villanueva Torres",
         "Sexo": "Femenino",
         "Edad": "61 años",
         "Presión arterial": "158/96 mmHg",
@@ -151,7 +139,6 @@ TEST_PATIENTS = {
     #   - (si te pregunta) No, no tengo dolor de espalda ni en los riñones
     #   - El ardor empeora al final de cada vez que orino
     "lupita": {
-        "Nombre": "Guadalupe Ramírez Ortiz",
         "Sexo": "Femenino",
         "Edad": "34 años",
         "Presión arterial": "112/70 mmHg",
@@ -160,13 +147,6 @@ TEST_PATIENTS = {
         "Glucosa": "85 mg/dL"
     },
 
-    "raquel": {
-        "Sexo": "Femenino",
-        "Edad": "49 años",
-        "Presión arterial": "112/70 mmHg",
-        "Peso": "60 kg",
-        "Talla": "162 cm",
-        "Glucosa": "85 mg/dL"}
 }
 
 # ── Active test patient — change this line to switch ──
