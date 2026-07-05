@@ -42,6 +42,10 @@ text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100
 embeddings = OllamaEmbeddings(
     model="nomic-embed-text-v2-moe",
     base_url="http://localhost:11434",
+    # 768 = full quality (development/Mac Mini) DEFAULT!!!! 
+    # 512 = balanced (clinic machines with RTX 3060)
+    # 256 = lightweight (future: lower-spec hardware)
+    #Ultra important!! decide which one to run, each one has a different dimension, 
 )
 
 # At the top — unpack both values
