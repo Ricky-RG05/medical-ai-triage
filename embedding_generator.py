@@ -1,6 +1,6 @@
 import os
 import glob
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 
@@ -93,14 +93,16 @@ def build_retriever(selected_folders: list, embeddings):
         return vectorstores[0].as_retriever(search_kwargs={"k": 4})
 
     # ── Multiple guides — combine manually ──
-    # Returns a simple retriever that queries all vectorstores and merges results
     from langchain_core.retrievers import BaseRetriever
     from langchain_core.documents import Document
     from langchain_core.callbacks import CallbackManagerForRetrieverRun
-    from typing import List
+    from typing import List, Any
 
     class CombinedRetriever(BaseRetriever):
-        stores: list
+        stores: List[Any]
+
+        class Config:
+            arbitrary_types_allowed = True
 
         def _get_relevant_documents(
             self, query: str, *, run_manager: CallbackManagerForRetrieverRun
@@ -110,10 +112,9 @@ def build_retriever(selected_folders: list, embeddings):
             for vs in self.stores:
                 docs = vs.similarity_search(query, k=4)
                 for doc in docs:
-                    # Deduplicate by content
                     if doc.page_content not in seen:
                         seen.add(doc.page_content)
                         results.append(doc)
-            return results[:8]  # cap at 8 total chunks
+            return results[:8]
 
     return CombinedRetriever(stores=vectorstores)

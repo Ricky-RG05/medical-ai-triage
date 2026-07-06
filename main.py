@@ -88,9 +88,7 @@ print(f"\n📋 Datos recopilados: {len(conversation_transcript)} campos")
 # Switch by changing: patient_data = TEST_PATIENTS["carlos"]
 # ─────────────────────────────────────────────
 
-TEST_PATIENTS = {
-
-    # TEST 1 — CARLOS
+# TEST 1 — CARLOS
     # Condición esperada: faringoamigdalitis_aguda
     # Qué decir en la entrevista:
     #   - Me llamo Carlos Mendoza, tengo 28 años
@@ -99,16 +97,8 @@ TEST_PATIENTS = {
     #   - Me siento muy cansado y no tengo ganas de comer
     #   - No tengo tos ni mocos, solo el dolor de garganta y la fiebre
     #   - (si te pregunta algo más) No, creo que eso es todo
-    "carlos": {
-        "Sexo": "Masculino",
-        "Edad": "28 años",
-        "Presión arterial": "118/74 mmHg",
-        "Peso": "72 kg",
-        "Talla": "173 cm",
-        "Glucosa": "88 mg/dL"
-    },
 
-    # TEST 2 — DOÑA ESPERANZA
+# TEST 2 — DOÑA ESPERANZA
     # Condición esperada: hipertension_arterial + dislipidemias_hipercolesterolemia
     # (comorbilidad — dos condiciones simultáneas, buen test para el clasificador)
     # Qué decir en la entrevista:
@@ -119,16 +109,8 @@ TEST_PATIENTS = {
     #   - No hago mucho ejercicio y como bastante grasa
     #   - (si te pregunta) No tomo ningún medicamento ahorita
     #   - (al final) Sí, también a veces siento que me late muy fuerte el corazón
-    "esperanza": {
-        "Sexo": "Femenino",
-        "Edad": "61 años",
-        "Presión arterial": "158/96 mmHg",
-        "Peso": "78 kg",
-        "Talla": "158 cm",
-        "Glucosa": "102 mg/dL"
-    },
 
-    # TEST 3 — LUPITA
+# TEST 3 — LUPITA
     # Condición esperada: infeccion_urinaria_mujer
     # Qué decir en la entrevista:
     #   - Me llamo Guadalupe Ramírez, tengo 34 años
@@ -138,7 +120,27 @@ TEST_PATIENTS = {
     #   - No tengo fiebre ni escalofríos
     #   - (si te pregunta) No, no tengo dolor de espalda ni en los riñones
     #   - El ardor empeora al final de cada vez que orino
-    "lupita": {
+
+TEST_PATIENTS = {
+    "test1": {
+        "Sexo": "Masculino",
+        "Edad": "28 años",
+        "Presión arterial": "118/74 mmHg",
+        "Peso": "72 kg",
+        "Talla": "173 cm",
+        "Glucosa": "88 mg/dL"
+    },
+
+    "test2": {
+        "Sexo": "Femenino",
+        "Edad": "61 años",
+        "Presión arterial": "158/96 mmHg",
+        "Peso": "78 kg",
+        "Talla": "158 cm",
+        "Glucosa": "102 mg/dL"
+    },
+
+    "test3": {
         "Sexo": "Femenino",
         "Edad": "34 años",
         "Presión arterial": "112/70 mmHg",
@@ -150,7 +152,7 @@ TEST_PATIENTS = {
 }
 
 # ── Active test patient — change this line to switch ──
-patient_data = TEST_PATIENTS["raquel"]
+patient_data = TEST_PATIENTS["test3"]
 
 
 # ─────────────────────────────────────────────
