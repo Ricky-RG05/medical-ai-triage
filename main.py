@@ -16,6 +16,17 @@ from conversation import run_triage_conversation, classify_condition
 #Store the current system's date twice, once when the comparison was made and the current one. Make a comparison between both to see if a month has gone by. If so, run update_all_guides() (only to be run once a month, because it takes a bit to run!) 
 from gpc_updater import update_all_guides, should_run_monthly_update
 
+# ── Verify Ollama is still responsive before running chain ──
+import httpx
+try:
+    httpx.get("http://localhost:11434/api/tags", timeout=3)
+except Exception:
+    print("⚠️  Ollama no responde. Reiniciando conexión...")
+    import subprocess
+    subprocess.Popen(["ollama", "serve"])
+    import time
+    time.sleep(3)  # give it time to start
+
 if should_run_monthly_update():
     print("🔄 Han pasado 30 días — actualizando guías clínicas...")
     update_all_guides()
@@ -39,6 +50,11 @@ embeddings = OllamaEmbeddings(
 
 # ── Pre-process any missing PDFs at startup ──
 preprocess_all_pdfs(embeddings)
+
+# ── Warm up embedding model so it stays loaded during conversation ──
+print("🔥 Warming up embedding model...")
+embeddings.embed_query("test")
+print("✅ Embedding model ready.\n")
 
 # ── Run triage conversation ──
 patient_data, conversation_transcript = run_triage_conversation()
@@ -152,7 +168,7 @@ TEST_PATIENTS = {
 }
 
 # ── Active test patient — change this line to switch ──
-patient_data = TEST_PATIENTS["test3"]
+patient_data = TEST_PATIENTS["test2"]
 
 
 # ─────────────────────────────────────────────
