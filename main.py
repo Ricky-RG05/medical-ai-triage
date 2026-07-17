@@ -168,7 +168,7 @@ TEST_PATIENTS = {
 }
 
 # ── Active test patient — change this line to switch ──
-patient_data = TEST_PATIENTS["test2"]
+patient_data = TEST_PATIENTS["test3"]
 
 
 # ─────────────────────────────────────────────
