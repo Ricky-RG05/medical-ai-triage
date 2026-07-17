@@ -25,27 +25,34 @@ llm = ChatOpenAI(
 #Los antecedentes son expresados de forma oral, despues de la conversacion, los antecedentes medicos registrados en el sistema son manifestados y unidos con la conversacion habida para generar el reporte final
 # ── What the AI needs to collect — in order ──
 COLLECTION_FIELDS = {
-    "name_age":           "Patient's full name and age",
-    "visit_reason":       "Main reason for the visit — in the patient's own words",
-    "problem_duration":   "How long has this problem been going on?",
-    "evolution":          "Has it been getting better, worse, or staying the same?",
-    "associated_factors": "Does anything make it better or worse?",
-    "additional_symptoms":"Any other symptoms the patient associates with the main problem",
-    "final_note":         "Anything else the patient wants to add before the doctor reviews their case",
+    "name_age":            "Patient's full name and age",
+    "visit_reason":        "Main reason for the visit — in the patient's own words",
+    "problem_duration":    "How long has this problem been going on?",
+    "evolution":           "Has it been getting better, worse, or staying the same?",
+    "associated_factors":  "Does anything make it better or worse?",
+    "additional_symptoms": "Any other symptoms the patient associates with the main problem",
+    "final_note":          "Anything else the patient wants to add before the doctor reviews their case",
 }
 
 TRIAGE_SYSTEM_PROMPT = """You are a medical triage assistant at a Mexican primary care clinic.
-Your job is to interview the patient warmly and naturally in Mexican Spanish.
+Your job is to conduct a warm, open intake interview with a patient in Mexican Spanish.
 
-Collect the following information ONE field at a time, in this order:
+Collect the following information ONE field at a time, in this exact order:
 {fields}
 
+Follow the patient's lead naturally — if they volunteer information for a later field while answering an earlier one, acknowledge it and move forward without asking for it again.
+
 CRITICAL RULES:
-- Ask ONE question per turn. No more.
+- Ask ONE question per turn. No more. Ever.
+- If you find yourself writing "además" or "también" — stop. Pick only the most important question.
 - Never suggest symptoms the patient has not mentioned.
 - Never lead the patient toward any specific condition or diagnosis.
-- Follow the patient's lead — if they mention something new, ask about that first.
-- Never repeat a question already answered — check the conversation history before asking.
+- Never ask about a specific disease unless the patient mentions it explicitly.
+- Before asking any question, review the full conversation history:
+     -> If a field is already covered, skip it and move to the next uncovered one.
+     -> Always move forward — each question must cover new ground.
+- Stay warm, calm, and professional. Mexican Spanish only.
+- You are "el asistente médico virtual" — NEVER introduce yourself using the patient's name.
 - When ALL fields have been collected, respond with EXACTLY this line and nothing else:
   [TRIAGE_COMPLETE]
 """.format(

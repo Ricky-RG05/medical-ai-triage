@@ -21,7 +21,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # Load Whisper (Speech-to-Text)
 # ─────────────────────────────────────────────
 print(f"🎙️  Cargando Whisper en: {device.upper()}...")
-whisper_model = whisper.load_model("small", device=device)
+whisper_model = whisper.load_model("medium", device=device)
 print(f"✅ Whisper listo en {device.upper()}.\n")
 
 # ─────────────────────────────────────────────
@@ -42,7 +42,7 @@ DEBUG_LISTEN      = True    # prints max volume + saves last recording to debug_
 
 
 def listen(duration: int = 10,
-           samplerate: int = 16000,
+           samplerate: int = 22050, #Sample rate for Whisper, not the mic (as well, much higher than the default 16000)
            silence_threshold: float = SILENCE_THRESHOLD,
            silence_seconds: float = SILENCE_SECONDS) -> str:
     """
@@ -113,7 +113,7 @@ def listen(duration: int = 10,
             sf.write(tmp.name, audio, samplerate)
             tmp_path = tmp.name
 
-        result = whisper_model.transcribe(tmp_path, language="es")
+        result = whisper_model.transcribe(tmp_path, language="es", initial_prompt="Consulta médica en español mexicano. Síntomas, enfermedades, medicamentos, dolor de garganta, fiebre, presión arterial, glucosa, infección urinaria, diabetes, hipertensión.",)
     finally:
         if tmp_path and os.path.exists(tmp_path):
             try:
