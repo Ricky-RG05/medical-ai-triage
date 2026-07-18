@@ -284,22 +284,49 @@ def run_triage_conversation() -> dict:
 # ─────────────────────────────────────────────
 
 FOLDERS = {
-    "diabetes_tipo2":                    "Diabetes, Glucosa elevada, sed excesiva, fatiga, visión borrosa, poliuria, diabetes, control glicémico",
-    "diarrea_aguda":                     "Diarrea, evacuaciones líquidas, dolor abdominal, náuseas, vómito, gastroenteritis, deshidratación",
-    "dislipidemias_hipercolesterolemia": "Colesterol alto, triglicéridos, lípidos en sangre, riesgo cardiovascular, dislipidemia",
-    "faringoamigdalitis_aguda":          "Dolor de garganta, amígdalas inflamadas, fiebre, dificultad al tragar, faringitis, amigdalitis",
-    "hipertension_arterial":             "Presión arterial alta, hipertensión, dolor de cabeza, mareos, control de presión",
-    "infeccion_urinaria_mujer":          "Ardor al orinar, frecuencia urinaria, dolor pélvico, infección urinaria, cistitis, disuria",
-    "infeccion_vias_respiratorias":      "Tos, catarro, resfriado, congestión nasal, moco, rinorrea, dolor de cabeza, gripe leve",
-    "influenza_n1h1":                    "Influenza, gripe fuerte, fiebre alta súbita, dolor muscular intenso, malestar general severo, H1N1",
-    "lumbalgia_aguda_cronica":           "Dolor de espalda baja, lumbalgia, dolor al doblar, ciática, dolor lumbar, espalda",
-}        
+    "diabetes_tipo2": {
+        "characteristics": "Diabetes, Glucosa elevada, sed excesiva, fatiga, visión borrosa, poliuria, control glicémico",
+        "guide_code": None  # auto-filled at startup
+    },
+    "diarrea_aguda": {
+        "characteristics": "Diarrea, evacuaciones líquidas, dolor abdominal, náuseas, vómito, gastroenteritis, deshidratación",
+        "guide_code": None
+    },
+    "dislipidemias_hipercolesterolemia": {
+        "characteristics": "Colesterol alto, triglicéridos, lípidos en sangre, riesgo cardiovascular, dislipidemia",
+        "guide_code": None
+    },
+    "faringoamigdalitis_aguda": {
+        "characteristics": "Dolor de garganta, amígdalas inflamadas, fiebre, dificultad al tragar, faringitis, amigdalitis",
+        "guide_code": None
+    },
+    "hipertension_arterial": {
+        "characteristics": "Presión arterial alta, hipertensión, dolor de cabeza, mareos, control de presión",
+        "guide_code": None
+    },
+    "infeccion_urinaria_mujer": {
+        "characteristics": "Ardor al orinar, frecuencia urinaria, dolor pélvico, infección urinaria, cistitis, disuria",
+        "guide_code": None
+    },
+    "infeccion_vias_respiratorias": {
+        "characteristics": "Tos, catarro, resfriado, congestión nasal, moco, rinorrea, dolor de cabeza, gripe leve",
+        "guide_code": None
+    },
+    "influenza_n1h1": {
+        "characteristics": "Influenza, gripe fuerte, fiebre alta súbita, dolor muscular intenso, malestar general severo, H1N1",
+        "guide_code": None
+    },
+    "lumbalgia_aguda_cronica": {
+        "characteristics": "Dolor de espalda baja, lumbalgia, dolor al doblar, ciática, dolor lumbar, espalda",
+        "guide_code": None
+    },
+}       
 
 CLASSIFICATION_PROMPT = f"""You are a medical triage classifier working at a Mexican primary care clinic.
 Your job is to read a patient conversation and select the most appropriate clinical guidelines.
 
 Available guidelines:
-{chr(10).join(f'- "{k}": {v}' for k, v in FOLDERS.items())}
+{chr(10).join(f'- "{k}": {v["characteristics"]}' for k, v in FOLDERS.items())}
 
 RULES:
 - Select ONLY guidelines that are DIRECTLY relevant to the patient's complaints.

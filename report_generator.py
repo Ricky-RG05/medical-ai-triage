@@ -22,8 +22,7 @@ MID_GRAY    = colors.HexColor("#CCCCCC")
 WHITE       = colors.white
 TEXT_DARK   = colors.HexColor("#1A1A1A")
 
-def generate_pdf(patient_data: dict, analysis_result: str, condition_title: str, selected_folder: str):
-    
+def generate_pdf(patient_data: dict, analysis_result: str, condition_title: str, selected_folder: str, guide_code: str = "GPC"):    
     section_number_style = ParagraphStyle(
         "SectionNumber",
         fontName="Helvetica-Bold",
@@ -161,7 +160,7 @@ def generate_pdf(patient_data: dict, analysis_result: str, condition_title: str,
     header_data = [[
         Paragraph("REPORTE DE EVALUACIÓN CLÍNICA", title_style),
         Paragraph(condition_title, subtitle_style),
-        Paragraph(f"GPC · {selected_folder.upper()} · Primer Nivel de Atención", subtitle_style),
+        Paragraph(f"{guide_code} · Primer Nivel de Atención", subtitle_style),
     ]]
     header_table = Table(header_data, colWidths=[6.5*inch])
     header_table.setStyle(TableStyle([
@@ -201,7 +200,7 @@ def generate_pdf(patient_data: dict, analysis_result: str, condition_title: str,
     story.append(Spacer(1, 16))
 
     # ── Section: Clinical Analysis ──
-    story.append(section_header("🩺  ANÁLISIS CLÍNICO (Basado en GPC SSA-022-08)"))
+    story.append(section_header(f"🩺  ANÁLISIS CLÍNICO (Basado en {guide_code})"))
     story.append(Spacer(1, 8))
 
     # Parse result into paragraphs

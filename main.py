@@ -11,6 +11,14 @@ from gpc_updater import update_all_guides
 # Import custom modules for conversation and PDF generation
 from report_generator import generate_pdf
 from conversation import run_triage_conversation, classify_condition
+from gpc_updater import update_all_guides, should_run_monthly_update, populate_guide_codes
+from conversation import run_triage_conversation, classify_condition, FOLDERS
+
+BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
+PDF_BASE_DIR = os.path.join(BASE_DIR, "PDFs")
+
+# ── Auto-extract guide codes from PDFs ──
+populate_guide_codes(FOLDERS, PDF_BASE_DIR)
 
 #------ Run at startup — skips download if guides haven't changed
 #Store the current system's date twice, once when the comparison was made and the current one. Make a comparison between both to see if a month has gone by. If so, run update_all_guides() (only to be run once a month, because it takes a bit to run!) 
@@ -66,6 +74,13 @@ if not conversation_transcript:
 # ── Classify condition ──
 selected_folders = classify_condition(conversation_transcript)
 
+# After classify_condition, get the guide code
+raw_code = FOLDERS.get(selected_folders[0], {}).get("guide_code")
+folder_label = selected_folders[0].replace("_", " ").title()
+
+# If code found: "IMSS-077-08", if not: just the condition name
+guide_reference = raw_code if raw_code else f"Guía clínica de {folder_label}"
+
 #Handling NO_MATCH-case!
 if selected_folders == ["NO_MATCH"]:
     print("\n" + "="*60)
@@ -93,11 +108,14 @@ Sé específico. Solo una oración."""),
     print("\n  Este caso está fuera del alcance del triaje de primer nivel.")
     print("="*60 + "\n")
 
+    guide_code = FOLDERS.get(selected_folders[0], {}).get("guide_code", "GPC")
+
     generate_pdf(
-        patient_data=patient_data,
-        analysis_result=f"REFERENCIA A ESPECIALISTA\n\n{referral_text}\n\nEste caso requiere atención especializada que excede el alcance de las guías de primer nivel disponibles en este sistema. El paciente debe ser referido al especialista indicado para evaluación y tratamiento apropiado.",
-        condition_title="Referencia a Especialista",
-        selected_folder="referencia_especialista"
+    patient_data=patient_data,
+    analysis_result=result,
+    condition_title=condition_title,
+    selected_folder=selected_folders[0],
+    guide_code=guide_reference       # ← new parameter
     )
     exit()
 # ── END OF NO_MATCH BLOCK ──

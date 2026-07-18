@@ -8,6 +8,9 @@ from googleapiclient.http import MediaIoBaseDownload
 #To open file to be ignored by git: "code .gitignore" → add the file name to the list of ignored files → save and close the file. Now git will ignore it.
 #All files starting with a dot (.) are hidden files in Windows, so you won't see it in the file explorer unless you enable "Show hidden files" in the view options.
 #Or... unless you run in the terminal "ls -Force"
+import re
+import glob
+import fitz  # pip install pymupdf — fastest PDF text extractor
 
 # ─────────────────────────────────────────────
 # GOOGLE DRIVE CONFIG
@@ -30,6 +33,81 @@ GPC_REGISTRY = {
     "dislipidemias_hipercolesterolemia": {"code": "IMSS-233-09", "drive_folder_id": "1OFCsW1SduzCDXXtrEewnchLFVTUr-bBF"},
     "diarrea_aguda": {"code": "SSA-106-08", "drive_folder_id": "1LEcbBdtmFgXRnO_Lhr7w3KShpPeOEj81"},
 }
+
+def extract_guide_code(pdf_path: str) -> str | None:
+    pattern = re.compile(
+        r'(?:GPC\s*[-–]?\s*)?(?:IMSS|SSA|CENETEC|ISSSTE)\s*[-–]?\s*\d{1,4}\s*[-–]?\s*\d{1,4}',
+        re.IGNORECASE
+    )
+
+    # Also match codes that appear on the line AFTER "Catálogo maestro..."
+    catalogue_pattern = re.compile(
+        r'[Cc]at[áa]logo\s+[Mm]aestro[^:\n]*:\s*\n?\s*'
+        r'((?:GPC\s*[-–]?\s*)?(?:IMSS|SSA|CENETEC|ISSSTE)\s*[-–]?\s*\d{1,4}\s*[-–]?\s*\d{1,4})',
+        re.IGNORECASE
+    )
+
+    try:
+        doc = fitz.open(pdf_path)
+        text = ""
+        for page_num in range(min(10, len(doc))):  # scan up to 10 pages
+            text += doc[page_num].get_text()
+        doc.close()
+
+        # ── Try catalogue pattern first (most reliable) ──
+        catalogue_match = catalogue_pattern.search(text)
+        if catalogue_match:
+            raw = catalogue_match.group(1)
+            return _normalize_code(raw)
+
+        # ── Fallback to general pattern ──
+        matches = pattern.findall(text)
+        if matches:
+            from collections import Counter
+            raw = Counter(matches).most_common(1)[0][0]
+            return _normalize_code(raw)
+
+    except Exception as e:
+        print(f"  ⚠️  Error leyendo PDF para código de guía: {e}")
+
+    return None
+
+
+def _normalize_code(raw: str) -> str:
+    normalized = raw.upper()
+    normalized = re.sub(r'\s*[-–]\s*', '-', normalized)
+    normalized = re.sub(r'\s+', '', normalized)
+    return normalized
+
+
+def populate_guide_codes(folders: dict, pdf_base_dir: str) -> None:
+    """
+    Scans each PDF folder, extracts the guide code, and stores it
+    in the FOLDERS dict in-place. Runs once at startup.
+    """
+    print("\n📋 Extrayendo códigos de guías clínicas...")
+    
+    for folder_name, data in folders.items():
+        if data["guide_code"] is not None:
+            continue  # already filled — skip
+            
+        pdf_folder = os.path.join(pdf_base_dir, folder_name)
+        pdf_files  = glob.glob(os.path.join(pdf_folder, "*.pdf"))
+        
+        if not pdf_files:
+            print(f"  ⚠️  {folder_name} — no PDF found")
+            continue
+            
+        code = extract_guide_code(pdf_files[0])
+        
+        if code:
+            folders[folder_name]["guide_code"] = code
+            print(f"  ✅ {folder_name} → {code}")
+        else:
+            folders[folder_name]["guide_code"] = None
+            print(f"  ⚠️  {folder_name} → código no detectado")
+    
+    print()
 
 def should_run_monthly_update() -> bool:
     """Returns True if more than 30 days have passed since last update check."""
