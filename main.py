@@ -66,6 +66,42 @@ if not conversation_transcript:
 # ── Classify condition ──
 selected_folders = classify_condition(conversation_transcript)
 
+#Handling NO_MATCH-case!
+if selected_folders == ["NO_MATCH"]:
+    print("\n" + "="*60)
+    print("  ⚠️  CONDICIÓN FUERA DE ALCANCE")
+    print("="*60)
+
+    referral_llm = ChatOpenAI(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="qwen2.5:7b",
+        temperature=0
+    )
+
+    from langchain_core.messages import SystemMessage, HumanMessage
+    referral_response = referral_llm.invoke([
+        SystemMessage(content="""Eres un asistente de triaje médico en México.
+Basándote en la conversación con el paciente, identifica a qué especialista médico debe ser referido.
+Responde ÚNICAMENTE con: "Se recomienda referir al paciente a: [nombre del especialista]"
+Sé específico. Solo una oración."""),
+        HumanMessage(content=f"Conversación:\n{conversation_transcript}")
+    ])
+
+    referral_text = referral_response.content.strip()
+    print(f"\n  {referral_text}")
+    print("\n  Este caso está fuera del alcance del triaje de primer nivel.")
+    print("="*60 + "\n")
+
+    generate_pdf(
+        patient_data=patient_data,
+        analysis_result=f"REFERENCIA A ESPECIALISTA\n\n{referral_text}\n\nEste caso requiere atención especializada que excede el alcance de las guías de primer nivel disponibles en este sistema. El paciente debe ser referido al especialista indicado para evaluación y tratamiento apropiado.",
+        condition_title="Referencia a Especialista",
+        selected_folder="referencia_especialista"
+    )
+    exit()
+# ── END OF NO_MATCH BLOCK ──
+
 # ── Build retriever from selected folders (uses cache) ──
 retriever = build_retriever(selected_folders, embeddings)
 

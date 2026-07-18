@@ -317,12 +317,18 @@ Example of multiple:
 diabetes_tipo2
 hipertension_arterial"""
 
+SPECIALIST_REFERRAL = {
+    "oftalmología":        "problemas de visión, ojos, vista, cataratas",
+    "ortopedia":           "huesos rotos, fracturas, lesiones articulares",
+    "dermatología":        "problemas de piel, sarpullido, manchas, acné severo",
+    "neurología":          "convulsiones, pérdida de consciencia, parálisis",
+    "cardiología":         "dolor de pecho severo, arritmia, infarto",
+    "gastroenterología":   "sangrado digestivo, dolor abdominal severo crónico",
+    "psiquiatría":         "ansiedad severa, depresión, salud mental",
+    "ginecología":         "problemas menstruales, embarazo, salud reproductiva femenina",
+}
 
 def classify_condition(transcript: str) -> list[str]:
-    """
-    Returns a LIST of folder names that match the patient's conversation.
-    Usually just one, but can be multiple for complex cases.
-    """
     classifier_llm = ChatOpenAI(
         base_url="http://localhost:11434/v1",
         api_key="ollama",
@@ -330,24 +336,42 @@ def classify_condition(transcript: str) -> list[str]:
         temperature=0
     )
 
+    # Updated prompt with no-match option
+    prompt = f"""You are a medical triage classifier working at a Mexican primary care clinic.
+Your job is to read a patient conversation and select the most appropriate clinical guidelines.
+
+Available guidelines:
+{chr(10).join(f'- "{k}": {v}' for k, v in FOLDERS.items())}
+
+RULES:
+- Select ONLY guidelines that are DIRECTLY relevant to the patient's complaints.
+- If the patient has ONE clear main complaint → return ONLY that one guideline.
+- If the patient has TWO OR MORE clearly distinct conditions → return multiple guidelines.
+- NEVER return more than 3 guidelines.
+- NEVER guess or add guidelines not clearly supported by what the patient said.
+- Base your decision ONLY on what the patient explicitly mentioned.
+- If the patient's condition does NOT match any available guideline → return exactly: NO_MATCH
+
+Reply with ONLY the folder name(s) one per line, or NO_MATCH.
+No explanations. No extra text."""
+
     response = classifier_llm.invoke([
-        SystemMessage(content=CLASSIFICATION_PROMPT),
+        SystemMessage(content=prompt),
         HumanMessage(content=f"Conversación:\n{transcript}")
     ])
 
     raw = response.content.strip()
 
-    # Parse — one folder per line
-    candidates = [line.strip() for line in raw.splitlines() if line.strip()]
+    if "NO_MATCH" in raw:
+        print("⚠️  Condición fuera del alcance de las guías disponibles. Se realizará general.")
+        return ["NO_MATCH"]
 
-    # Validate — keep only known folders, ignore hallucinations
+    candidates = [line.strip() for line in raw.splitlines() if line.strip()]
     valid = [c for c in candidates if c in FOLDERS]
 
     if not valid:
-        #Get a general folder, if the model didn't recognize any specific classification
-        print(f"⚠️  Clasificación no reconocida ('{raw}'). Usando 'infeccion_vias_respiratorias' por defecto.")
-        return ["infeccion_vias_respiratorias"]
+        print(f"⚠️  Clasificación no reconocida ('{raw}'). Marcando como NO_MATCH.")
+        return ["NO_MATCH"]
 
     print(f"📂 Guías clínicas seleccionadas: {', '.join(valid)}")
     return valid
-
