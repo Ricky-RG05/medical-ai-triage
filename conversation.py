@@ -293,7 +293,7 @@ FOLDERS = {
     "infeccion_vias_respiratorias":      "Tos, catarro, resfriado, congestión nasal, moco, rinorrea, dolor de cabeza, gripe leve",
     "influenza_n1h1":                    "Influenza, gripe fuerte, fiebre alta súbita, dolor muscular intenso, malestar general severo, H1N1",
     "lumbalgia_aguda_cronica":           "Dolor de espalda baja, lumbalgia, dolor al doblar, ciática, dolor lumbar, espalda",
-}
+}        
 
 CLASSIFICATION_PROMPT = f"""You are a medical triage classifier working at a Mexican primary care clinic.
 Your job is to read a patient conversation and select the most appropriate clinical guidelines.
