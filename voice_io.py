@@ -41,7 +41,7 @@ POST_SPEAK_DELAY  = 0.35    # seconds to wait AFTER TTS finishes, to avoid echo 
 DEBUG_LISTEN      = True    # prints max volume + saves last recording to debug_last.wav
 
 
-def listen(duration: int = 10,
+def listen(duration: int = 15,
            samplerate: int = 22050, #Sample rate for Whisper, not the mic (as well, much higher than the default 16000)
            silence_threshold: float = SILENCE_THRESHOLD,
            silence_seconds: float = SILENCE_SECONDS) -> str:

@@ -13,6 +13,7 @@ from report_generator import generate_pdf
 from conversation import run_triage_conversation, classify_condition
 from gpc_updater import update_all_guides, should_run_monthly_update, populate_guide_codes
 from conversation import run_triage_conversation, classify_condition, FOLDERS
+from langchain_core.messages import SystemMessage, HumanMessage
 
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
 PDF_BASE_DIR = os.path.join(BASE_DIR, "PDFs")
@@ -95,12 +96,11 @@ if selected_folders == ["NO_MATCH"]:
         temperature=0
     )
 
-    from langchain_core.messages import SystemMessage, HumanMessage
     referral_response = referral_llm.invoke([
         SystemMessage(content="""Eres un asistente de triaje médico en México.
-Basándote en la conversación con el paciente, identifica a qué especialista médico debe ser referido.
-Responde ÚNICAMENTE con: "Se recomienda referir al paciente a: [nombre del especialista]"
-Sé específico. Solo una oración."""),
+        Basándote en la conversación con el paciente, identifica a qué especialista médico debe ser referido.
+        Responde ÚNICAMENTE con: "Se recomienda referir al paciente a: [nombre del especialista]"
+        Sé específico. Solo una oración."""),
         HumanMessage(content=f"Conversación:\n{conversation_transcript}")
     ])
 
@@ -109,14 +109,12 @@ Sé específico. Solo una oración."""),
     print("\n  Este caso está fuera del alcance del triaje de primer nivel.")
     print("="*60 + "\n")
 
-    guide_code = FOLDERS.get(selected_folders[0], {}).get("guide_code", "GPC")
-
     generate_pdf(
-    patient_data=patient_data,
-    analysis_result=result,
-    condition_title=condition_title,
-    selected_folder=selected_folders[0],
-    guide_code=guide_reference       # ← new parameter
+        patient_data=patient_data,
+        analysis_result=f"REFERENCIA A ESPECIALISTA\n\n{referral_text}\n\nEste caso requiere atención especializada que excede el alcance de las guías de primer nivel disponibles en este sistema.",
+        condition_title="Referencia a Especialista",
+        selected_folder="referencia_especialista",
+        guide_code="N/A"
     )
     exit()
 # ── END OF NO_MATCH BLOCK ──
@@ -233,7 +231,7 @@ TEST_PATIENTS = {
 }
 
 # ── Active test patient — change this line to switch ──
-patient_data = TEST_PATIENTS["test3"]
+patient_data = TEST_PATIENTS["test2"]
 
 
 # ─────────────────────────────────────────────
@@ -319,8 +317,12 @@ template = f"""Eres un asistente médico siguiendo las guías clínicas oficiale
 
 INSTRUCCIÓN CRÍTICA: Debes responder OBLIGATORIAMENTE con las siguientes 4 secciones numeradas. 
 Cada sección debe tener mínimo 3-5 oraciones detalladas. NO des respuestas cortas.
-IMPORTANTE: Usa ÚNICAMENTE la información del contexto de la guía clínica proporcionado. 
-NO inventes códigos de guía. Si la guía usada es {guide_reference}, cítala exactamente así.
+
+PUNTOS IMPORTANTES: 
+-Usa ÚNICAMENTE la información del contexto de la guía clínica proporcionado. 
+-NO inventes códigos de guía. Si la guía usada es {guide_reference}, cítala exactamente así.
+-Distingue claramente entre lo que el paciente reportó explícitamente y lo que se infiere clínicamente. 
+    Usa frases como 'el paciente refiere' para datos directos y 'sugiere' o 'es compatible con' para inferencias clínicas.
 
 === CONTEXTO DE LA GUÍA CLÍNICA ===
 {{context}}
