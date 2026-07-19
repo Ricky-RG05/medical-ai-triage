@@ -79,7 +79,8 @@ raw_code = FOLDERS.get(selected_folders[0], {}).get("guide_code")
 folder_label = selected_folders[0].replace("_", " ").title()
 
 # If code found: "IMSS-077-08", if not: just the condition name
-guide_reference = raw_code if raw_code else f"Guía clínica de {folder_label}"
+guide_reference = FOLDERS.get(selected_folders[0], {}).get("guide_code") or \
+                  selected_folders[0].replace("_", " ").title()
 
 #Handling NO_MATCH-case!
 if selected_folders == ["NO_MATCH"]:
@@ -219,6 +220,16 @@ TEST_PATIENTS = {
         "Glucosa": "85 mg/dL"
     },
 
+    "test4": {
+        "Sexo": "",
+        "Edad": "",
+        "Presión arterial": "",
+        "Peso": "",
+        "Talla": "",
+        "Glucosa": ""
+
+    }
+
 }
 
 # ── Active test patient — change this line to switch ──
@@ -304,37 +315,38 @@ llm = ChatOpenAI(
 
 #ChatPromptTemplate allows us to create a structured prompt with multiple input variables (context, question, patient data) and a clear format for the LLM to follow.
 #Consider that they're multiple ways of structuring the template per-se, but this one was used, because it allows us to make the whole template using a single string-format, which then is converted into a prompt object that can be used in the Runnable chain, once we use the conversion "from_template".
-template = """Eres un asistente médico siguiendo las guías clínicas oficiales mexicanas (GPC SSA-022-08).
+template = f"""Eres un asistente médico siguiendo las guías clínicas oficiales mexicanas ({guide_reference}).
 
 INSTRUCCIÓN CRÍTICA: Debes responder OBLIGATORIAMENTE con las siguientes 4 secciones numeradas. 
 Cada sección debe tener mínimo 3-5 oraciones detalladas. NO des respuestas cortas.
+IMPORTANTE: Usa ÚNICAMENTE la información del contexto de la guía clínica proporcionado. 
+NO inventes códigos de guía. Si la guía usada es {guide_reference}, cítala exactamente así.
 
 === CONTEXTO DE LA GUÍA CLÍNICA ===
-{context}
+{{context}}
 
 === DATOS DEL PACIENTE ===
-{patient_data}
+{{patient_data}}
 
 === TRANSCRIPCIÓN DE LA CONVERSACIÓN ===
-{conversation}
+{{conversation}}
 
 === PREGUNTA ===
-{question}
+{{question}}
 
 Responde EXACTAMENTE con este formato, sin omitir ninguna sección:
 
 1. Evaluación de Riesgo
-[Analiza detalladamente el nivel de riesgo del paciente basándote en sus síntomas, edad, historial y factores de riesgo según la GPC. Mínimo 4 oraciones.]
+[Analiza detalladamente el nivel de riesgo basándote ÚNICAMENTE en el contexto de la guía {guide_reference}. Mínimo 4 oraciones.]
 
 2. Síntomas Relevantes Detectados
-[Lista y explica cada síntoma relevante que presenta el paciente y su importancia clínica según la guía. Mínimo 4 oraciones.]
+[Lista y explica cada síntoma según la guía {guide_reference}. Mínimo 4 oraciones.]
 
 3. Estudios Recomendados
-[Especifica exactamente qué estudios diagnósticos recomienda la GPC para este caso y por qué. Mínimo 3 oraciones.]
+[Especifica ÚNICAMENTE los estudios que recomienda la guía {guide_reference}. No inventes estudios. Mínimo 3 oraciones.]
 
 4. Conclusión y Criterio de Referencia
-[Concluye si el paciente debe ser referido, a qué especialista, con qué urgencia, y qué seguimiento se recomienda según la GPC. Mínimo 4 oraciones.]"""
-
+[Concluye basándote ÚNICAMENTE en los criterios de referencia de la guía {guide_reference}. Mínimo 4 oraciones.]"""
 #Official documentation for ChatPromptTemplate can be found here: https://reference.langchain.com/python/langchain-core/prompts/chat/ChatPromptTemplate
 prompt = ChatPromptTemplate.from_template(template)
 
