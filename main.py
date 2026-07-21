@@ -233,68 +233,8 @@ TEST_PATIENTS = {
 # ── Active test patient — change this line to switch ──
 patient_data = TEST_PATIENTS["test2"]
 
-
 # ─────────────────────────────────────────────
-# 1. Load & index the PDF guideline
-# ─────────────────────────────────────────────
-"""
-Worth flagging for future-you: when you eventually persist Chroma to disk for performance, you'll need to delete the persisted index any time you change embedding models. 
-"""
-
-#As it can be cleary seen, the offload from the embeddings is directly to the CPU, i.e. since it requires so little resources, it's better to offload it to the CPU and free up GPU resources for the LLM inference, which is the most resource-intensive part of the process. This way, we can optimize the overall performance of the system by ensuring that the GPU is primarily dedicated to running the LLM, while the CPU handles the less demanding task of generating embeddings for the document chunks.
-
-""" Worth flagging! 
-
-The search document doesn't run automatically by Ollama, so it must be manually managed. Just consider it when chaiging the 
-actual pipeline, if it'll run all PDFs in RAG or only the selected one, etc.
-
-# For embedding your PDF chunks at storage time
-doc_embeddings = OllamaEmbeddings(
-    model="nomic-embed-text-v2-moe",
-    base_url="http://localhost:11434",
-)
-
-# For embedding queries at retrieval time  
-query_embeddings = OllamaEmbeddings(
-    model="nomic-embed-text-v2-moe",
-    base_url="http://localhost:11434",
-)
-
-And then wrap your texts before embedding:
-python# When building the vectorstore
-prefixed_splits = [
-    Document(
-        page_content="search_document: " + doc.page_content,
-        metadata=doc.metadata
-    ) 
-    for doc in splits
-]
-
-vectorstore = Chroma.from_documents(
-    documents=prefixed_splits, 
-    embedding=doc_embeddings
-)
-
-# When querying
-def retrieve(query: str):
-    prefixed_query = "search_query: " + query
-    return vectorstore.similarity_search(prefixed_query, k=4)
-
-"""
-
-"""
-2. Your k=4 flexibility comment — valid concern, here's the real solution
-Instead of hardcoding k=4, make it proportional to how many documents you have:
-pythonimport math
-
-def get_retriever(vectorstore, num_docs: int):
-    # Scale k with collection size, but cap it sensibly
-    k = min(max(4, math.ceil(num_docs * 0.1)), 20)
-    return vectorstore.as_retriever(search_kwargs={"k": k})
-"""
-
-# ─────────────────────────────────────────────
-# 2. LLM via LM Studio
+# 2. LLM via Ollama
 # ─────────────────────────────────────────────
 
 #Standarized interface for creating an LLM based on the ChatOpenAI interface: 
